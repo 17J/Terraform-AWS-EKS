@@ -1,120 +1,142 @@
-# 🚀 Terraform EKS Cluster Deployment on AWS
+# 🚀 Terraform EKS Cluster on AWS
 
-This guide provisions an Amazon Elastic Kubernetes Service (EKS) cluster using Terraform, including configurations for accessing and managing the cluster.
-
----
+This guide provisions an **Amazon Elastic Kubernetes Service (EKS)** cluster using **Terraform**, including configurations for accessing and managing the cluster.
 
 ## 🛠️ Prerequisites
 
-Ensure the following are installed and configured before starting:
+Ensure the following tools are installed and configured:
 
-- **AWS CLI**: Version 2.x. [Install guide](https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2.html).
-- **Kubectl**: Compatible with your EKS cluster version (e.g., 1.30). [Install guide](https://kubernetes.io/docs/tasks/tools/install-kubectl/).
-- **Terraform CLI**: Version 1.x (recommended: 1.5 or later). [Install guide](https://developer.hashicorp.com/terraform/install).
-- **AWS IAM User**: With programmatic access and sufficient permissions (e.g., a custom policy with EKS, VPC, IAM, and EC2 permissions).
-- **AWS Credentials**: Configured via `~/.aws/credentials` or environment variables:
-  ```bash
-  export AWS_ACCESS_KEY_ID="your-access-key"
-  export AWS_SECRET_ACCESS_KEY="your-secret-key"
-  export AWS_DEFAULT_REGION="us-east-1"
-  ```
+### 1. Install AWS CLI v2
 
----
+```bash
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+sudo apt install unzip -y
+unzip awscliv2.zip
+sudo ./aws/install
+aws --version
+```
 
-## 🧪 Steps to Deploy EKS Using Terraform
+### 2. Install kubectl
 
-### 1️⃣ Authenticate with AWS CLI
+```bash
+curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+```
 
-Configure your AWS CLI with the appropriate credentials:
+### 3. Install Terraform
+
+```bash
+sudo apt-get update && sudo apt-get install -y gnupg software-properties-common
+wget -O- https://apt.releases.hashicorp.com/gpg | gpg --dearmor | sudo tee /usr/share/keyrings/hashicorp-archive-keyring.gpg > /dev/null
+echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+sudo apt update && sudo apt-get install terraform
+```
+
+## 🔐 IAM Setup (Programmatic Access)
+
+Run these commands to create a dedicated IAM user for Jenkins/Terraform.
+
+### Step 1: Create IAM User
+
+```bash
+aws iam create-user --user-name jenkins-eks-admin
+```
+
+### Step 2: Create Policy File
+
+```bash
+cat <<EOF > policy.json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "eks:*",
+        "ec2:*",
+        "iam:*",
+        "vpc:*",
+        "autoscaling:*",
+        "cloudformation:*"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+EOF
+```
+
+### Step 3: Attach Policy
+
+```bash
+# Create custom policy
+aws iam create-policy --policy-name EKS-Admin-Policy --policy-document file://policy.json
+
+# Attach it
+# (Using AdministratorAccess for learning — use EKS-Admin-Policy in production)
+aws iam attach-user-policy --user-name jenkins-eks-admin --policy-arn arn:aws:iam::aws:policy/AdministratorAccess
+```
+
+### Step 4: Generate Access Keys
+
+```bash
+aws iam create-access-key --user-name jenkins-eks-admin
+```
+
+**⚠️ Note:** Save the `AccessKeyId` and `SecretAccessKey` from the output **securely**.
+
+## 🧪 Deploy EKS Cluster
+
+### 1️⃣ Authentication
+
+Configure your AWS CLI with the keys generated above:
 
 ```bash
 aws configure
 ```
 
-Provide:
+Enter:
 
-- AWS Access Key ID
-- AWS Secret Access Key
-- Default region (e.g., `us-east-1`)
-- Output format (e.g., `json`)
+- Access Key ID
+- Secret Access Key
+- Default region name → `ap-south-1` (or your preferred region)
+- Default output format → `json`
 
-Verify authentication:
-
-```bash
-aws sts get-caller-identity
-```
-
-### 2️⃣ Clone or Set Up Terraform Code
-
-Navigate to your Terraform project directory containing the EKS configuration (e.g., `main.tf`, `variables.tf`, `outputs.tf`). If you don’t have one, use or adapt the [AWS EKS Terraform module](https://registry.terraform.io/modules/terraform-aws-modules/eks/aws/latest).
-
-Example directory setup:
+### 2️⃣ Initialize Terraform
 
 ```bash
-cd IAC-EKS-Cluster
-```
-
-Ensure your Terraform configuration includes:
-
-- VPC setup (subnets, route tables, NAT gateway, etc.)
-- EKS cluster with managed node groups or Fargate profiles
-- IAM roles for EKS and node groups
-- Security group rules for cluster communication
-
-### 3️⃣ Initialize Terraform
-
-Initialize the Terraform working directory to download providers and modules:
-
-```bash
+cd TERRAFORM-AWS-EKS
 terraform init
 ```
 
-### 4️⃣ Preview the Terraform Execution Plan
-
-Review the resources Terraform will create or modify:
+### 3️⃣ Validate ,Plan and Deploy
 
 ```bash
+terraform validate
 terraform plan
+terraform apply --auto-approve
 ```
 
-Check the output for correctness (e.g., cluster name, region, node group size).
+Wait **10–15 minutes** for AWS to provision the cluster.
 
-### 5️⃣ Deploy the EKS Cluster
+### 4️⃣ Configure kubectl
 
-Apply the Terraform configuration to provision the EKS cluster:
+Connect your local `kubectl` to the new EKS cluster:
 
 ```bash
-terraform apply
+aws eks --region ap-south-1 update-kubeconfig --name <cluster-name>
 ```
 
-Type `yes` when prompted to confirm. This may take 10–15 minutes.
+Verify connection:
 
-### 6️⃣ Configure Kubeconfig for EKS
-
-Update your `kubectl` configuration to connect to the EKS cluster. Replace `ap-south-1` and `cluster-name` with your region and EKS cluster name (as defined in your Terraform config):
-
-```bash
-aws eks --region ap-south-1 update-kubeconfig --name cluster-name
-```
-
-Verify cluster access:
-
-```bash
+```bashgit
 kubectl get nodes
 ```
 
-You should see the nodes in your EKS cluster.
-
----
-
 ## 🧹 Cleanup
 
-To destroy the EKS cluster and associated resources, run:
+To avoid unnecessary AWS costs, destroy the resources when you're done:
 
 ```bash
-terraform destroy
+terraform destroy --auto-approve
 ```
-
-Type `yes` when prompted. Ensure you’ve backed up any critical data before destroying.
-
----
