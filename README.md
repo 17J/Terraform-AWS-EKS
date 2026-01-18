@@ -9,7 +9,7 @@ You can deploy this EKS cluster using two methods:
 ### 🏗️ Project Deployment Flow
 
 <p align="center">
-    <img src="snapshot/jenkins_based_devops.png" alt="DevSecOps Pipeline Flow"/>
+    <img src="snapshot\IaCSecOps_Pipeline.png" alt="IaCSecOps Pipeline Flow"/>
 </p>
 
 ### **Security Tools (DevSecOps)**
@@ -37,13 +37,19 @@ Terraform Code Scanning:
 ### **Jenkins Pipeline View**
 
 <p align="center">
-    <img src="snapshot/tf-eks-pipeline.png" alt="Jenkins Pipeline Stages" width="800"/>
+    <img src="snapshot\eks-pipeline-phase.png" alt="Jenkins Pipeline Stages" width="800"/>
 </p>
 
 ### **Report View**
 
 <p align="center">
     <img src="snapshot/terraform-aws-eks-report.png" alt="Pipeline Execution Details" width="800"/>
+</p>
+
+### **AWS EKS Cluster View**
+
+<p align="center">
+    <img src="snapshot\nodes-eks-image.png" alt="EKS Cluster  Details" width="800"/>
 </p>
 
 ---
