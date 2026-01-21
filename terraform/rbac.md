@@ -9,7 +9,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: jenkins
-  namespace: demoapps
+  namespace: threetierapp
 ```
 
 ### **2. Role**
@@ -19,9 +19,9 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: jenkins-role
-  namespace: demoapps
+  namespace: threetierapp
 rules:
-  # Permissions for core API resources
+  # Core API resources
   - apiGroups: [""]
     resources:
       - secrets
@@ -29,27 +29,78 @@ rules:
       - persistentvolumeclaims
       - services
       - pods
+      - pods/log
+      - pods/exec
+      - pods/portforward
+      - events
+      - endpoints
+      - replicationcontrollers # ADDED THIS
+      - resourcequotas
+      - limitranges
+      - serviceaccounts
     verbs: ["get", "list", "watch", "create", "update", "delete", "patch"]
 
-  # Permissions for apps API group
+  # Apps API group
   - apiGroups: ["apps"]
     resources:
       - deployments
+      - deployments/scale
+      - deployments/status
       - replicasets
+      - replicasets/scale
+      - replicasets/status
       - statefulsets
+      - statefulsets/scale
+      - statefulsets/status
+      - daemonsets
+      - daemonsets/status
     verbs: ["get", "list", "watch", "create", "update", "delete", "patch"]
 
-  # Permissions for networking API group
+  # Networking API group
   - apiGroups: ["networking.k8s.io"]
     resources:
       - ingresses
+      - ingresses/status
+      - networkpolicies
     verbs: ["get", "list", "watch", "create", "update", "delete", "patch"]
 
-  # Permissions for autoscaling API group
+  # Autoscaling
   - apiGroups: ["autoscaling"]
     resources:
       - horizontalpodautoscalers
+      - horizontalpodautoscalers/status
     verbs: ["get", "list", "watch", "create", "update", "delete", "patch"]
+
+  # Batch jobs
+  - apiGroups: ["batch"]
+    resources:
+      - jobs
+      - jobs/status
+      - cronjobs
+      - cronjobs/status
+    verbs: ["get", "list", "watch", "create", "update", "delete", "patch"]
+
+  # Extensions (for backward compatibility)
+  - apiGroups: ["extensions"]
+    resources:
+      - deployments
+      - replicasets
+      - ingresses
+      - daemonsets
+    verbs: ["get", "list", "watch", "create", "update", "delete", "patch"]
+
+  # Policy
+  - apiGroups: ["policy"]
+    resources:
+      - poddisruptionbudgets
+    verbs: ["get", "list", "watch", "create", "update", "delete", "patch"]
+
+  # RBAC (if Jenkins needs to manage service accounts)
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources:
+      - roles
+      - rolebindings
+    verbs: ["get", "list", "watch"]
 ```
 
 ### **3. RoleBinding**
@@ -59,7 +110,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: jenkins-rolebinding
-  namespace: demoapps
+  namespace: threetierapp
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -67,7 +118,7 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: jenkins
-    namespace: demoapps
+    namespace: threetierapp
 ```
 
 ### **4. ClusterRole**
@@ -78,21 +129,35 @@ kind: ClusterRole
 metadata:
   name: jenkins-cluster-role
 rules:
-  # Permissions for persistentvolumes
+  # Namespaces
+  - apiGroups: [""]
+    resources:
+      - namespaces
+    verbs: ["get", "list", "watch"]
+
+  # Nodes
+  - apiGroups: [""]
+    resources:
+      - nodes
+    verbs: ["get", "list", "watch"]
+
+  # PersistentVolumes
   - apiGroups: [""]
     resources:
       - persistentvolumes
-    verbs: ["get", "list", "watch", "create", "update", "delete"]
-  # Permissions for storageclasses
+    verbs: ["get", "list", "watch"]
+
+  # StorageClasses
   - apiGroups: ["storage.k8s.io"]
     resources:
       - storageclasses
-    verbs: ["get", "list", "watch", "create", "update", "delete"]
-  # Permissions for ClusterIssuer
-  - apiGroups: ["cert-manager.io"]
+    verbs: ["get", "list", "watch"]
+
+  # ComponentStatuses (for cluster health checks)
+  - apiGroups: [""]
     resources:
-      - clusterissuers
-    verbs: ["get", "list", "watch", "create", "update", "delete"]
+      - componentstatuses
+    verbs: ["get", "list"]
 ```
 
 ### **5. ClusterRoleBinding**
@@ -109,34 +174,8 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: jenkins
-    namespace: demoapps
+    namespace: threetierapp
 ```
-
-### **Explanation of Permissions**
-
-1. **ServiceAccount**:
-
-   - The `jenkins` ServiceAccount is created in the `demoapps` namespace.
-
-2. **Role**:
-
-   - Grants access to namespace-specific resources:
-     - **Secrets**, **ConfigMaps**, **PersistentVolumeClaims**, **Services**, and **Pods**.
-     - **Deployments** and **ReplicaSets** under the `apps` API group.
-
-3. **RoleBinding**:
-
-   - Binds the `jenkins` Role to the ServiceAccount in the `demoapps` namespace.
-
-4. **ClusterRole**:
-
-   - Grants access to cluster-wide resources:
-     - **PersistentVolumes** (required for dynamic provisioning).
-     - **StorageClasses** (required to create and manage storage classes for dynamic PV provisioning).
-
-5. **ClusterRoleBinding**:
-   - Binds the `jenkins` ClusterRole to the ServiceAccount for cluster-wide operations.
-
 ### **How to Apply the YAML Files**
 
 1. Save each YAML snippet as a separate file:
@@ -159,11 +198,29 @@ subjects:
 
 3. Verify the ServiceAccount has the expected permissions:
    ```bash
-   kubectl auth can-i create secrets --as=system:serviceaccount:demoapps:jenkins -n demoapps
-   kubectl auth can-i create storageclasses --as=system:serviceaccount:demoapps:jenkins
-   kubectl auth can-i create persistentvolumes --as=system:serviceaccount:demoapps:jenkins
+   kubectl auth can-i create deployment --as=system:serviceaccount:threetierapp:jenkins -n threetierapp
+   kubectl auth can-i get nodes --as=system:serviceaccount:threetierapp:jenkins
    ```
 
 ### Generate token using service account in the namespace
+```yaml
+apiVersion: v1
+kind: Secret
+type: kubernetes.io/service-account-token
+metadata:
+  name: jenkins-token
+  namespace: threetierapp
+  annotations:
+    kubernetes.io/service-account.name: jenkins
 
-[Create Token](https://kubernetes.io/docs/reference/access-authn-authz/service-accounts-admin/#:~:text=To%20create%20a%20non%2Dexpiring,with%20that%20generated%20token%20data.)
+```
+Save File as `token.yml`
+
+```bash
+kubectl apply -f token.yml
+```
+Get the Token for Jenkins UI
+
+```bash
+kubectl get secret jenkins-token -n threetierapp -o jsonpath={.data.token} | base64 --decode
+```
