@@ -289,10 +289,10 @@ This repository provides a complete, production-ready Terraform configuration fo
 
 - [Features](#-features)
 - [Architecture](#-architecture)
-- [Prerequisites](#-prerequisites)
 - [Quick Start](#-quick-start)
 - [Deployment Options](#-deployment-options)
 - [Security Tools](#-security-tools-devsecops)
+- [Prerequisites](#-prerequisites)
 - [Pipeline Results](#-pipeline-results)
 - [Configuration](#-configuration)
 - [Cleanup](#-cleanup)
