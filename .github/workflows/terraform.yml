@@ -20,47 +20,54 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+      
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
+      
       - name: Terraform Init (No Backend)
         run: terraform init -backend=false
+      
       - name: Terraform Validate
         run: terraform validate
+      
       - name: Run Checkov
         uses: bridgecrewio/checkov-action@master
         with:
           directory: terraform
           framework: terraform
           soft_fail: true
+      
       - name: Install Terrascan
-        run: >
-          TERRASCAN_VERSION="v1.19.2"
-
+        run: |
+          TERRASCAN_VERSION="1.19.2"
           curl -L -o terrascan.tar.gz \
-
-          https://github.com/tenable/terrascan/releases/download/${TERRASCAN_VERSION}/terrascan_${TERRASCAN_VERSION}_Linux_x86_64.tar.gz
-
-          tar -xzf terrascan.tar.gz
-
-          chmod +x terrascan
-
-          sudo mv terrascan /usr/local/bin/
-
-          terrascan version
-
-          terrascan init
-
-
-          terrascan init
+            "https://github.com/tenable/terrascan/releases/download/v${TERRASCAN_VERSION}/terrascan_${TERRASCAN_VERSION}_Linux_x86_64.tar.gz"
+          
+          # Verify the file is actually a gzip archive
+          if file terrascan.tar.gz | grep -q gzip; then
+            tar -xzf terrascan.tar.gz
+            chmod +x terrascan
+            sudo mv terrascan /usr/local/bin/
+            terrascan version
+          else
+            echo "Downloaded file is not a valid gzip archive"
+            cat terrascan.tar.gz
+            exit 1
+          fi
+      
       - name: Terrascan Init
         run: terrascan init
+      
       - name: Run Terrascan Scan
         run: terrascan scan -t terraform -d .
         continue-on-error: true
+      
       - name: Terraform Init (With Backend)
         run: terraform init -reconfigure
+      
       - name: Terraform Plan
         run: terraform plan -no-color
+
   terraform-apply:
     name: Manual Approval & Apply
     needs: terraform-security-and-plan
@@ -73,9 +80,12 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+      
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
+      
       - name: Terraform Init
         run: terraform init -reconfigure
+      
       - name: Terraform Apply
         run: terraform apply -auto-approve
