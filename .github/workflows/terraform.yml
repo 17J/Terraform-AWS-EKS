@@ -1,0 +1,91 @@
+name: "Terraform DevSecOps Pipeline"
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  terraform-security-and-plan:
+    name: "Scan, Validate & Plan"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write # Required for uploading SARIF reports
+      pull-requests: write  # To post plan results in PR comments
+
+    defaults:
+      run:
+        working-directory: ./terraform # code file
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # 1. Setup Terraform
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      # 2. Terraform Format (Check only)
+      - name: Terraform Format
+        run: terraform fmt -check
+
+      # 3. Terraform Init & Validate
+      - name: Terraform Init & Validate
+        run: |
+          terraform init -backend=false # For Scan needed Backend
+          terraform validate
+
+      # 4. Checkov Scan (Security)
+      - name: Run Checkov
+        uses: bridgecrewio/checkov-action@master
+        with:
+          directory: terraform/
+          framework: terraform
+          soft_fail: false #  On Security issues pipeline fail
+
+      # 5. Terrascan (Security)
+      - name: Run Terrascan
+        uses: tenable/terrascan-action@main
+        with:
+          iac_type: terraform
+          iac_dir: terraform/
+          sarif_upload: true
+
+      # 6. Upload Security Results to GitHub Security Tab
+      - name: Upload SARIF file
+        uses: github/codeql-action/upload-sarif@v3
+        if: always() 
+        with:
+          sarif_file: terrascan.sarif
+
+      # 7. Terraform Plan 
+      - name: Terraform Plan
+        id: plan
+        run: terraform plan -no-color
+        continue-on-error: false
+
+  terraform-apply:
+    name: "Manual Approval & Apply"
+    needs: terraform-security-and-plan
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production #  It's Gate Trigger Manual Approval on Github 
+
+    defaults:
+      run:
+        working-directory: ./terraform
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve
