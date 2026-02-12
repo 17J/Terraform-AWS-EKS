@@ -34,13 +34,22 @@ jobs:
           soft_fail: true
       - name: Install Terrascan
         run: >
-          curl -L
-          https://raw.githubusercontent.com/tenable/terrascan/master/scripts/install.sh
-          | bash
+          TERRASCAN_VERSION="v1.19.2"
+
+          curl -L -o terrascan.tar.gz \
+
+          https://github.com/tenable/terrascan/releases/download/${TERRASCAN_VERSION}/terrascan_${TERRASCAN_VERSION}_Linux_x86_64.tar.gz
+
+          tar -xzf terrascan.tar.gz
+
+          chmod +x terrascan
 
           sudo mv terrascan /usr/local/bin/
 
           terrascan version
+
+          terrascan init
+
 
           terrascan init
       - name: Terrascan Init
