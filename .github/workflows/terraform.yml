@@ -39,23 +39,14 @@ jobs:
           framework: terraform
           soft_fail: true
       
-      - name: Install and Run Terrascan
-        run: |
-          curl -L "$(curl -s https://api.github.com/repos/tenable/terrascan/releases/latest | grep -o -E "https://.+?_Linux_x86_64.tar.gz")" > terrascan.tar.gz
-          tar -xf terrascan.tar.gz terrascan && rm terrascan.tar.gz
-          ./terrascan init
-          
-          # Run scan and ensure valid SARIF output
-          ./terrascan scan -i terraform -d . --out-format sarif -o ../terrascan.sarif || echo '{"version":"2.1.0","runs":[]}' > ../terrascan.sarif
-          
-          # Verify SARIF file is valid JSON
-          cat ../terrascan.sarif | jq empty || echo '{"version":"2.1.0","runs":[]}' > ../terrascan.sarif
-      
-      - name: Upload SARIF file
-        uses: github/codeql-action/upload-sarif@v4
-        if: always()
+      - name: Run Terrascan
+        uses: tenable/terrascan-action@main
         with:
-          sarif_file: terrascan.sarif
+          iac_type: 'terraform'
+          iac_dir: './terraform'
+          sarif_upload: true
+          non_recursive: false
+          verbose: true
       
       - name: Terraform Plan
         id: plan
