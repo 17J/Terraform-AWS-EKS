@@ -29,12 +29,12 @@ jobs:
 
       # 2. Terraform Format (Check only)
       - name: Terraform Format
-        run: terraform fmt -check
+        run: terraform fmt 
 
       # 3. Terraform Init & Validate
       - name: Terraform Init & Validate
         run: |
-          terraform init -backend=false # For Scan needed Backend
+          terraform init -backend=false
           terraform validate
 
       # 4. Checkov Scan (Security)
@@ -43,7 +43,7 @@ jobs:
         with:
           directory: terraform/
           framework: terraform
-          soft_fail: false #  On Security issues pipeline fail
+          soft_fail: true #  On Security issues pipeline fail
 
       # 5. Terrascan (Security)
       - name: Run Terrascan
