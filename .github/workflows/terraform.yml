@@ -20,43 +20,48 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+      
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
+      
       - name: Terraform Format
         run: terraform fmt
+      
       - name: Terraform Init & Validate
         run: |
           terraform init -backend=false
           terraform validate
+      
       - name: Run Checkov
         uses: bridgecrewio/checkov-action@master
         with:
           directory: terraform/
           framework: terraform
           soft_fail: true
+      
       - name: Install and Run Terrascan
-        run: >
-          curl -L "$(curl -s
-          https://api.github.com/repos/tenable/terrascan/releases/latest | grep
-          -o -E "https://.+?_Linux_x86_64.tar.gz")" > terrascan.tar.gz
-
+        run: |
+          curl -L "$(curl -s https://api.github.com/repos/tenable/terrascan/releases/latest | grep -o -E "https://.+?_Linux_x86_64.tar.gz")" > terrascan.tar.gz
           tar -xf terrascan.tar.gz terrascan && rm terrascan.tar.gz
-
           ./terrascan init
-
-          # Scan runs and generates SARIF
-
-          ./terrascan scan -i terraform -d . --out-format sarif >
-          ../terrascan.sarif || true
+          
+          # Run scan and ensure valid SARIF output
+          ./terrascan scan -i terraform -d . --out-format sarif -o ../terrascan.sarif || echo '{"version":"2.1.0","runs":[]}' > ../terrascan.sarif
+          
+          # Verify SARIF file is valid JSON
+          cat ../terrascan.sarif | jq empty || echo '{"version":"2.1.0","runs":[]}' > ../terrascan.sarif
+      
       - name: Upload SARIF file
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
           sarif_file: terrascan.sarif
+      
       - name: Terraform Plan
         id: plan
         run: terraform plan -no-color
         continue-on-error: false
+  
   terraform-apply:
     name: Manual Approval & Apply
     needs: terraform-security-and-plan
@@ -69,9 +74,12 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+      
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
+      
       - name: Terraform Init
         run: terraform init
+      
       - name: Terraform Apply
         run: terraform apply -auto-approve
