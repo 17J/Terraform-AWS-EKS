@@ -1,90 +1,72 @@
 name: Terraform DevSecOps Pipeline
-
-on:
+'on':
   push:
     branches:
       - main
   pull_request:
     branches:
       - main
-
 jobs:
   terraform-security-and-plan:
-    name: Scan, Validate & Plan
+    name: 'Scan, Validate & Plan'
     runs-on: ubuntu-latest
     permissions:
       contents: read
       security-events: write
       pull-requests: write
-
     defaults:
       run:
         working-directory: ./terraform
-
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
-
-      # -------- Terraform Validate --------
       - name: Terraform Init (No Backend)
         run: terraform init -backend=false
-
       - name: Terraform Validate
         run: terraform validate
-
-      # -------- Checkov --------
       - name: Run Checkov
         uses: bridgecrewio/checkov-action@master
         with:
           directory: terraform
           framework: terraform
           soft_fail: true
-
-      # -------- Terrascan Manual Install --------
       - name: Install Terrascan
-        run: |
-          curl -L https://github.com/tenable/terrascan/releases/latest/download/terrascan_Linux_x86_64.tar.gz -o terrascan.tar.gz
-          tar -xzf terrascan.tar.gz
+        run: >
+          curl -L
+          https://raw.githubusercontent.com/tenable/terrascan/master/scripts/install.sh
+          | bash
+
           sudo mv terrascan /usr/local/bin/
+
           terrascan version
 
+          terrascan init
       - name: Terrascan Init
         run: terrascan init
-
       - name: Run Terrascan Scan
         run: terrascan scan -t terraform -d .
         continue-on-error: true
-
-      # -------- Terraform Plan (With Backend) --------
       - name: Terraform Init (With Backend)
         run: terraform init -reconfigure
-
       - name: Terraform Plan
         run: terraform plan -no-color
-
   terraform-apply:
     name: Manual Approval & Apply
     needs: terraform-security-and-plan
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: production
-
     defaults:
       run:
         working-directory: ./terraform
-
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
-
       - name: Terraform Init
         run: terraform init -reconfigure
-
       - name: Terraform Apply
         run: terraform apply -auto-approve
