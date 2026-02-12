@@ -1,4 +1,5 @@
 name: Terraform DevSecOps Pipeline
+
 'on':
   push:
     branches:
@@ -6,6 +7,7 @@ name: Terraform DevSecOps Pipeline
   pull_request:
     branches:
       - main
+
 jobs:
   terraform-security-and-plan:
     name: 'Scan, Validate & Plan'
@@ -39,7 +41,7 @@ jobs:
       
       - name: Install Terrascan
         run: |
-          TERRASCAN_VERSION="1.19.2"
+          TERRASCAN_VERSION="1.19.1"
           curl -L -o terrascan.tar.gz \
             "https://github.com/tenable/terrascan/releases/download/v${TERRASCAN_VERSION}/terrascan_${TERRASCAN_VERSION}_Linux_x86_64.tar.gz"
           
