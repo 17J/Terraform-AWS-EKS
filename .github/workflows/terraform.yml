@@ -54,6 +54,12 @@ jobs:
           terrascan init
           terrascan scan -t tf -d . --format sarif > terrascan_report.sarif
         continue-on-error: true
+        
+      - name: Upload SARIF file as Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: terrascan-report
+          path: terrascan_report.sarif
 
       - name: Run Trivy configuration scan
         run: |
