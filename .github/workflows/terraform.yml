@@ -87,7 +87,7 @@ jobs:
         run: terraform init -reconfigure
       
       - name: Terraform Plan
-        run: terraform plan -no-color
+        run: terraform plan -no-color -compact-warnings -out=tfplan -lock=false
   terraform-apply:
     name: Manual Approval & Apply
     needs: terraform-security-and-plan
