@@ -15,7 +15,7 @@ env:
 jobs:
   terraform-security-and-plan:
     name: 'Scan, Validate & Plan'
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     permissions:
       contents: read
       security-events: write
@@ -48,51 +48,30 @@ jobs:
           framework: terraform
           soft_fail: true
       
-      - name: Install Terrascan
-        run: |
-          TERRASCAN_VERSION="1.19.1"
-          curl -L -o terrascan.tar.gz \
-            "https://github.com/tenable/terrascan/releases/download/v${TERRASCAN_VERSION}/terrascan_${TERRASCAN_VERSION}_Linux_x86_64.tar.gz"
-          
-          # Verify the file is actually a gzip archive
-          if file terrascan.tar.gz | grep -q gzip; then
-            tar -xzf terrascan.tar.gz
-            chmod +x terrascan
-            sudo mv terrascan /usr/local/bin/
-            terrascan version
-          else
-            echo "Downloaded file is not a valid gzip archive"
-            cat terrascan.tar.gz
-            exit 1
-          fi
-      
-      - name: Terrascan Init
-        run: terrascan init
-      
       - name: Run Terrascan Scan
-        run: terrascan scan -t terraform -d .
+        run: |
+          # Terrascan is pre-installed on the runner
+          terrascan init
+          terrascan scan -t terraform -d . -o human
         continue-on-error: true
 
       - name: Run Trivy configuration scan
-        uses: aquasecurity/trivy-action@0.29.0
-        with:
-          scan-type: 'config'
-          directory: './terraform'
-          hide-progress: true
-          format: 'table'
-          exit-code: '0'
-          severity: 'CRITICAL,HIGH'
+        run: |
+          # Running Trivy with on-screen table output
+          trivy config ./terraform --format table --severity CRITICAL,HIGH --exit-code 0
+        continue-on-error: true
       
       - name: Terraform Init (With Backend)
         run: terraform init -reconfigure
       
       - name: Terraform Plan
         run: terraform plan -no-color -compact-warnings -out=tfplan -lock=false
+
   terraform-apply:
     name: Manual Approval & Apply
     needs: terraform-security-and-plan
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     environment: production
     defaults:
       run:
