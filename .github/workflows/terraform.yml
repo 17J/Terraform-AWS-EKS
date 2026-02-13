@@ -1,5 +1,4 @@
 name: Terraform DevSecOps Pipeline
-
 'on':
   push:
     branches:
@@ -7,7 +6,6 @@ name: Terraform DevSecOps Pipeline
   pull_request:
     branches:
       - main
-
 jobs:
   terraform-security-and-plan:
     name: 'Scan, Validate & Plan'
@@ -25,6 +23,9 @@ jobs:
       
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
+      
+      - name: Terraform Format Check
+        run: terraform fmt -check
       
       - name: Terraform Init (No Backend)
         run: terraform init -backend=false
@@ -63,13 +64,22 @@ jobs:
       - name: Run Terrascan Scan
         run: terrascan scan -t terraform -d .
         continue-on-error: true
+
+      - name: Run Trivy configuration scan
+        uses: aquasecurity/trivy-action@0.29.0
+        with:
+          scan-type: 'config'
+          directory: './terraform'
+          hide-progress: true
+          format: 'table'
+          exit-code: '0'
+          severity: 'CRITICAL,HIGH'
       
       - name: Terraform Init (With Backend)
         run: terraform init -reconfigure
       
       - name: Terraform Plan
         run: terraform plan -no-color
-
   terraform-apply:
     name: Manual Approval & Apply
     needs: terraform-security-and-plan
