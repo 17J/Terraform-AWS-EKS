@@ -52,7 +52,7 @@ jobs:
         run: |
           # Terrascan is pre-installed on the runner
           terrascan init
-          terrascan scan -t terraform -d . -o human
+          terrascan scan -t tf -d . --format sarif > terrascan_report.sarif
         continue-on-error: true
 
       - name: Run Trivy configuration scan
