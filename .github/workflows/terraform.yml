@@ -50,17 +50,17 @@ jobs:
         run: |
           # Terrascan is pre-installed on the runner
           terrascan init
-          # Generate SARIF for GitHub security tab/artifacts
-          terrascan scan -t tf -d . --format sarif > terrascan_report.sarif || true
+          # Generate JSON for GitHub security tab/artifacts
+          terrascan scan -i terraform -o json > terrascan_report.json || true
           # Display results on screen in human-readable format
-          terrascan scan -t tf -d .
+          terrascan scan -i terraform
         continue-on-error: true
         
-      - name: Upload SARIF file as Artifact
+      - name: Upload JSON file as Artifact
         uses: actions/upload-artifact@v4
         with:
           name: terrascan-report
-          path: terraform/terrascan_report.sarif
+          path: terraform/terrascan_report.json
       - name: Run Trivy configuration scan
         run: |
           # Running Trivy with on-screen table output
