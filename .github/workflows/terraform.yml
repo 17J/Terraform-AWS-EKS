@@ -6,12 +6,10 @@ name: Terraform DevSecOps Pipeline
   pull_request:
     branches:
       - main
-
 env:
   AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
   AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
   AWS_REGION: ${{ secrets.AWS_REGION }} # Optional but recommended
-
 jobs:
   terraform-security-and-plan:
     name: 'Scan, Validate & Plan'
@@ -52,15 +50,17 @@ jobs:
         run: |
           # Terrascan is pre-installed on the runner
           terrascan init
-          terrascan scan -t tf -d . --format sarif > terrascan_report.sarif
+          # Generate SARIF for GitHub security tab/artifacts
+          terrascan scan -t tf -d . --format sarif > terrascan_report.sarif || true
+          # Display results on screen in human-readable format
+          terrascan scan -t tf -d .
         continue-on-error: true
         
       - name: Upload SARIF file as Artifact
         uses: actions/upload-artifact@v4
         with:
           name: terrascan-report
-          path: terrascan_report.sarif
-
+          path: terraform/terrascan_report.sarif
       - name: Run Trivy configuration scan
         run: |
           # Running Trivy with on-screen table output
@@ -72,7 +72,6 @@ jobs:
       
       - name: Terraform Plan
         run: terraform plan -no-color -compact-warnings -out=tfplan -lock=false
-
   terraform-apply:
     name: Manual Approval & Apply
     needs: terraform-security-and-plan
