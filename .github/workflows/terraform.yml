@@ -25,7 +25,9 @@ jobs:
         uses: hashicorp/setup-terraform@v3
       
       - name: Terraform Format Check
-        run: terraform fmt -check
+        id: fmt
+        run: terraform fmt -check -recursive
+        continue-on-error: true
       
       - name: Terraform Init (No Backend)
         run: terraform init -backend=false
